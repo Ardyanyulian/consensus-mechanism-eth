@@ -34,13 +34,13 @@
                 }
             }
 
-            inline void rho(State& A){
-                static const  uint64_t rhoOffsets[5][5] = {
-                    {0, 1, 62, 28, 27},
-                    {36, 44, 6, 55, 20},
-                    {3, 10, 43, 25 , 39},
-                    {41, 45, 15, 21, 8},
-                    {18, 2, 61, 56, 14}
+            inline void rho(State& A) {
+                static const uint64_t rhoOffsets[5][5] = {
+                    {0,  36, 3,  41, 18}, // x=0, y=0..4
+                    {1,  44, 10, 45, 2},  // x=1, y=0..4
+                    {62, 6,  43, 15, 61}, // x=2, y=0..4
+                    {28, 55, 25, 21, 56}, // x=3, y=0..4
+                    {27, 20, 39, 8,  14}  // x=4, y=0..4
                 };
 
                 for (int x = 0; x < 5; ++x) {
@@ -50,21 +50,19 @@
                 }
             }
 
-            inline void phi(State& A){
+            inline void phi(State& A) {
                 uint64_t temp[5][5];
-
                 for (int x = 0; x < 5; ++x) {
                     for (int y = 0; y < 5; ++y) {
                         temp[y][(2 * x + 3 * y) % 5] = A[x][y];
                     }
                 }
-                for (int x = 0; x < 5;++x) {
+                // Copy back
+                for (int x = 0; x < 5; ++x) {
                     for (int y = 0; y < 5; ++y) {
                         A[x][y] = temp[x][y];
                     }
                 }
-
-
             }
 
             inline void  chi(State& A){
@@ -107,63 +105,53 @@
                 }
             }
 
-            inline void absorb(State& data, const std::vector<uint8_t>& massage){
-                // variabel dengan isi setiap 8 bit dan berubah ubah sebagai penampung
-                std::vector<uint8_t> padded_massage = massage;
-                // menambahkan pembuka yakni 0x01 padding setelah massage tersebut
-                padded_massage.push_back(0x01);
-                // lakkukan padding sampai size % 136 = 0
-                while (padded_massage.size() % 136 != 135) {
-                    // tambahkan 0x00 sampai size ini 135
-                    padded_massage.push_back(0x00);
+            inline void absorb(State& data, const std::vector<uint8_t>& massage) {
+                std::vector<uint8_t> p = massage;
+
+                // 1. Padding pad10*1 (Keccak-256 / Ethereum style)
+                p.push_back(0x01);
+                while ((p.size() % 136) != 0) {
+                    if (p.size() % 136 == 135) {
+                        p.push_back(0x80);
+                    } else {
+                        p.push_back(0x00);
+                    }
                 }
-                // tutup padding dengan 0x80 sebagai penutup
-                padded_massage.push_back(0x80);
 
-                // perulangan untuk memasukkan data 136 bytes kedalam setiap sel di array yang hanya bisa muat 64 bit
-                for (size_t offset = 0; offset < padded_massage.size();  offset += 136) {
-                    // perulangan untuk memasukkan 136 bytes kedalam array tapi hanya memasukkan dengan xor di 17 selnya saja
-                    for (size_t i = 0; i < 17; ++i ) {
-                        // penampung data yang di ambil di setiap  8 bytenya
+                // 2. Prosedur XOR ke State
+                for (size_t offset = 0; offset < p.size(); offset += 136) {
+                    for (size_t i = 0; i < 17; ++i) { // 17 lanes = 136 bytes (Rate)
                         uint64_t lane_value = 0;
-
-                        // memakstikan semua kolom di masukkan datanya tapi hanya sampai pada bagian kolom 1 dan baris3 / (1,3)
-                        size_t x = i % 5;
-                        size_t y = i / 5;
-
-                        // perulangan untuk menumpuk 8 bit dikalikan 8 kali
                         for (size_t j = 0; j < 8; ++j) {
-                            // menumpuk dengan memakai xor yakni memaksa indeks sekarang ini untuk dibaca sebagai 64 bit dan di geser kekiri sejauh 8 bit
-                            // jadi  8 bit pertama -> 8 bit kedua ... 8 bit kedelapan
-                            lane_value ^= (static_cast<uint64_t>(padded_massage[offset + (i * 8) + j]) << (j*8));
+                            // Little-endian mapping
+                            lane_value |= (static_cast<uint64_t>(p[offset + (i * 8) + j]) << (8 * j));
                         }
-
-                        // tumpuk semua datanya kedalam kolom dengan fungsi xor
-                        data[x][y] ^= lane_value;
+                        // XOR ke state koordinat (x, y)
+                        data[i % 5][i / 5] ^= lane_value;
                     }
 
+                    // JALANKAN PERMUTASI SETIAP SELESAI 1 BLOCK (136 BYTE)
                     keccak_f1600(data);
                 }
-
             }
 
             inline std::vector<uint8_t> squeeze(State& data){
 
                 std::vector<uint8_t> hash_result;
 
-                for (int i = 0; i < 4; ++i) {
-                    uint64_t lane = data[i][0];
-
-                    for (int j = 0; j < 8; ++j) {
-                        hash_result.push_back(static_cast<uint8_t>((lane >> (j*8)) & 0xFF));
-                    }
+                for (int i = 0; i < 32; ++i) { // Kita butuh 256 bit = 32 byte
+                        // Ambil byte demi byte dari lanes y=0, y=1, dst.
+                        int x = (i / 8) % 5;
+                        int y = (i / 8) / 5;
+                        uint8_t byte = (data[x][y] >> (8 * (i % 8))) & 0xFF;
+                        hash_result.push_back(byte);
                 }
 
                 return hash_result;
             }
 
             inline std::vector<uint8_t> keccak256(const std::vector<uint8_t>& input){
-                State state = {0};
+                State state = {};
 
                 absorb(state, input);
 

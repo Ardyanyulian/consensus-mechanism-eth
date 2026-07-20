@@ -1,0 +1,12 @@
+# Mengabaikan file konfigurasi sensitif
+.env
+
+# Mengabaikan folder settingan editor Zed
+.zed/
+
+# Mengabaikan semua file eksekusi Windows (jika ada)
+*.exe
+
+# Mengabaikan file biner hasil kompilasi tanpa ekstensi di Linux/macOS
+# (Ganti atau tambahkan nama biner spesifik proyekmu di sini nanti)
+test_build
