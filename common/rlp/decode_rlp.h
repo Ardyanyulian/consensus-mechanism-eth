@@ -5,13 +5,7 @@
 #include <string>
 #include <cstdint>
 #include <stdexcept>
-
-
-struct RLPItem {
-    bool is_list;
-    std::string data;
-    std::vector<RLPItem> list;
-};
+#include "rlp_types.h"
 
 // fungsi Penerima bytes dan mengesernya
 inline size_t decode_length(const std::vector<uint8_t>& bytes, size_t& offset, uint8_t prefix_offset){
@@ -133,6 +127,7 @@ RLPItem decode_internal(const std::vector<uint8_t>& bytes, size_t& offset){
         }
         return Item;
     }
+    throw std::runtime_error("RLP: Invalid byte prefix");
 }
 
 

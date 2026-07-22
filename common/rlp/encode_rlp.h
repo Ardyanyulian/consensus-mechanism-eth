@@ -7,13 +7,8 @@
 #include <vector>
 #include <string>
 #include <type_traits>
+#include "rlp_types.h"
 
-
-struct RLPItem {
-    bool is_list;
-    std::string data;
-    std::vector<RLPItem> list;
-};
 
 // ini adalah fungsi untuk mengurutkan integral berdasarkan big endian
 // dan ini memotong bit bit kosong didepan
