@@ -1,35 +1,47 @@
-# Mini-Ethereum Implementation
+<h1 align="center">Consensus Mechanism ETH</h1>
 
-A minimal, dual-client (Execution & Consensus) Ethereum blockchain implementation built from scratch in C++17. Designed as a lightweight, clean, and highly traceable simulation framework to study how Ethereum nodes operate under modern Proof-of-Stake (PoS) architecture.
+<p align="center">
+  <strong>Engine Proof-of-Stake (Gasper) Ethereum berbasis C++17 super ringan.</strong><br>
+  Deterministik, tanpa dependensi eksternal, dan dirancang untuk performa tinggi.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <a href="https://en.cppreference.com/w/cpp/17"><img src="https://img.shields.io/badge/C++-17-blue.svg" alt="C++17" /></a>
+</p>
 
 ---
 
-## 🏗️ Repository Architecture & Progress
+## 📌 Ringkasan Proyek
 
-Our implementation strategy enforces a strict dependency flow, starting with foundational shared modules (`common/`) before assembling client engines.
+**consensus-mechanism-eth** adalah implementasi *bare-metal* dari mekanisme konsensus Ethereum (Gasper). Proyek ini menggabungkan aturan *Fork Choice* **LMD-GHOST** dan *Finality Engine* **Casper FFG** dalam satu biner C++17 yang independen tanpa *framework* atau pustaka kriptografi pihak ketiga.
+
+Proyek ini merujuk langsung pada spesifikasi akademis konsensus Ethereum:
+* 📄 **Casper FFG Paper:** [ArXiv:1710.09437](https://arxiv.org/pdf/1710.09437)
+* 📄 **Combining Casper & GHOST (Gasper):** [ArXiv:2003.03052](https://arxiv.org/pdf/2003.03052)
+
+---
+
+## ✨ Karakteristik Utama
+
+* **Zero External Dependencies:** Implementasi Keccak-256 dan RLP encoding ditulis dari awal (*pure native C++*).
+* **Deterministik:** *State machine* murni tanpa *side-effects* non-deterministik, cocok untuk pengujian spesifikasi.
+* **Arsitektur Modular:** Pemisahan yang jelas antara kriptografi, RLP serialization, dan logika konsensus.
+
+---
+
+## 🏗️ Struktur Proyek & Arsitektur
 
 ```text
-mini-ethereum/
+consensus-mechanism-eth/
+├── common/                  # Primitif & Utilitas
+│   ├── crypto/              # Keccak-256 Native Engine
+│   ├── rlp/                 # Parser & Encoder RLP
+│   └── types/               # Tipe Data Utama (Slot, Epoch, Hash, Validator)
 │
-├── common/                  ← Core Foundations [IN PROGRESS]
-│   ├── rlp/                 • Recursive Length Prefix (Custom impl) [PARTIALLY COMPLETE]
-│   ├── ssz/                 • Simple Serialize (Custom impl for Consensus Data)
-│   ├── crypto/              • Cryptographic primitives: Custom Keccak256; BLS12-381 & ECDSA via library [KECCAK COMPLETE]
-│   ├── types/               • Ethereum Native Types (Address, Hash, uint256, Tx, Block, Receipt) [100% COMPLETE]
-│   └── config/              • Network Configurations (genesis.json, chain_id, slot_duration)
+├── consensus/               # Engine Proof-of-Stake (Gasper)
+│   ├── state.h / .cpp       # BeaconState Machine
+│   ├── lmd_ghost.h / .cpp   # Algoritma Fork Choice LMD-GHOST
+│   └── casper_ffg.h / .cpp  # Justifikasi & Finalisasi Casper FFG
 │
-├── execution_client/        ← Execution Layer (EL)
-│   ├── evm/                 • Custom EVM Interpreter (~50 core opcodes, gas metering)
-│   ├── state/               • Account state, simplified Merkle Patricia Trie (MPT), LevelDB wrapper
-│   ├── txpool/              • Transaction Mempool with EIP-1559 validation
-│   └── engine/              • Engine API Handler (CL-EL communication bridge)
-│
-├── consensus_client/        ← Consensus Layer (CL)
-│   ├── beacon/              • Slot/Epoch logic, chain head tracker
-│   ├── validator/           • Block production, BLS signing, attestation broadcasting
-│   └── fork_choice/         • Naive LMD-GHOST Fork Choice rule
-│
-└── simulation/              ← Local Cluster Simulation (Deterministic testing framework)
-    ├── node.cpp             • Unified Node abstraction (1 EL + 1 CL + 1 Validator)
-    ├── fake_network.cpp     • Virtual message bus for deterministic p2p simulation
-    └── scenario.cpp         • Multi-node consensus orchestration and tx routing
+└── test/                    # Suite Pengujian Integrasi
