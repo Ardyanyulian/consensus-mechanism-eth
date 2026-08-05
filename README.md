@@ -1,8 +1,8 @@
 <h1 align="center">Consensus Mechanism ETH</h1>
 
 <p align="center">
-  <strong>Engine Proof-of-Stake (Gasper) Ethereum berbasis C++17 super ringan.</strong><br>
-  Deterministik, tanpa dependensi eksternal, dan dirancang untuk performa tinggi.
+  <strong>Engine Proof-of-Stake (Gasper) Ethereum berbasis C++17</strong><br>
+  Deterministik dan tanpa dependensi eksternal.
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
 
 ---
 
-## 📌 Ringkasan Proyek
+## Ringkasan Proyek
 
 **consensus-mechanism-eth** adalah implementasi *bare-metal* dari mekanisme konsensus Ethereum (Gasper). Proyek ini menggabungkan aturan *Fork Choice* **LMD-GHOST** dan *Finality Engine* **Casper FFG** dalam satu biner C++17 yang independen tanpa *framework* atau pustaka kriptografi pihak ketiga.
 
@@ -22,7 +22,7 @@ Proyek ini merujuk langsung pada spesifikasi akademis konsensus Ethereum:
 
 ---
 
-## ✨ Karakteristik Utama
+## Karakteristik Utama
 
 * **Zero External Dependencies:** Implementasi Keccak-256 dan RLP encoding ditulis dari awal (*pure native C++*).
 * **Deterministik:** *State machine* murni tanpa *side-effects* non-deterministik, cocok untuk pengujian spesifikasi.
@@ -30,7 +30,7 @@ Proyek ini merujuk langsung pada spesifikasi akademis konsensus Ethereum:
 
 ---
 
-## 🏗️ Struktur Proyek & Arsitektur
+## Struktur Proyek & Arsitektur
 
 ```text
 consensus-mechanism-eth/
