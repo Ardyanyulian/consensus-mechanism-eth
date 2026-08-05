@@ -5,4 +5,4 @@
 #include "types/execution.h"
 #include "types/primitives.h"
 
-#endif
+#endif // COMMON_H

@@ -1,56 +1,48 @@
-/*
- * digunakan agar libary buatan manualku hanya di load oleh kompiler 1 kali
- */
-
 #ifndef COMMON_TYPES_PRIMITIVES_H
 #define COMMON_TYPES_PRIMITIVES_H
 
-/*
- *  menggunakan libary yang sudah dibuat orang lain secara manual
- */
-
 #include <array>
 #include <cstdint>
-#include <string>
+#include <vector>
 
-/*
- * Sistem penamaan library yang nanti dipanggil gimana ??
- */
+namespace common::types {
 
-namespace common {
+    struct Address {
+        std::array<uint8_t, 20> bytes{};
 
-    namespace types {
-        // variabel Address yang berbentuk struct, hanya bisa menampung 20 saja, dan maksimal 1 bytes
-        struct Address {
-            std::array<uint8_t, 20> bytes;
-        };
+        std::vector<uint8_t> to_vector() const {
+            return std::vector<uint8_t>(bytes.begin(), bytes.end());
+        }
+    };
 
+    struct Hash {
+        std::array<uint8_t, 32> bytes{};
 
-        struct Hash {
-            std::array<uint8_t, 32> bytes;
-        };
+        bool operator==(const Hash& other) const noexcept {
+            return bytes == other.bytes;
+        }
 
-        struct PublicKey {
-            std::array<uint8_t, 48> bytes;
-        };
+        bool operator<(const Hash& other) const noexcept {
+            return bytes < other.bytes;
+        }
+    };
 
-        struct Signature {
-            std::array<uint8_t , 96> bytes;
-        };
+    using Root = Hash;
 
-        struct Root {
-            std::array<uint8_t, 32> bytes;
-        };
+    struct PublicKey {
+        std::array<uint8_t, 48> bytes{};
+    };
 
-        // Sistem penamaan tipe data atau tipe data buatan untuk menjadi alias tipe data lain.
-        using Slot = uint64_t;
-        using Epoch = uint64_t;
-        using ValidatorIndex = uint64_t;
-        using Gwei = uint64_t;
-        using uint256 = std::array<uint64_t, 4>;
-    }
+    struct Signature {
+        std::array<uint8_t, 96> bytes{};
+    };
 
-}
+    using Slot = uint64_t;
+    using Epoch = uint64_t;
+    using ValidatorIndex = uint64_t;
+    using Gwei = uint64_t;
+    using uint256 = std::array<uint64_t, 4>;
 
-// penutup if
-#endif
+} // namespace common::types
+
+#endif // COMMON_TYPES_PRIMITIVES_H

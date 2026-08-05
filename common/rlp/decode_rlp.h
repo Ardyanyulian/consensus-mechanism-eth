@@ -1,144 +1,118 @@
-#ifndef COMMON_DECODE_RLP
-#define COMMON_DECODE_RLP
+#ifndef COMMON_DECODE_RLP_H
+#define COMMON_DECODE_RLP_H
 
-#include <vector>
-#include <string>
 #include <cstdint>
 #include <stdexcept>
+#include <vector>
 #include "rlp_types.h"
 
-// fungsi Penerima bytes dan mengesernya
-inline size_t decode_length(const std::vector<uint8_t>& bytes, size_t& offset, uint8_t prefix_offset){
-    size_t total = 0;
-    size_t lenght_of_length = 0;
+namespace common::rlp {
 
-    if (prefix_offset == 0xB7){
-        if (bytes[offset] <= 0xBF &&  bytes[offset] > 0xB7){
-            lenght_of_length = bytes[offset] - prefix_offset;
+    inline size_t decode_length(const std::vector<uint8_t>& bytes, size_t& offset, uint8_t prefix_offset) {
+        if (offset >= bytes.size()) {
+            throw std::runtime_error("RLP: Length byte out of bounds");
+        }
+
+        uint8_t prefix = bytes[offset];
+        size_t length_of_length = prefix - prefix_offset;
+        offset++;
+
+        if (offset + length_of_length > bytes.size()) {
+            throw std::runtime_error("RLP: Length bytes extended out of bounds");
+        }
+
+        size_t total = 0;
+        for (size_t i = 0; i < length_of_length; ++i) {
+            total = (total << 8) | bytes[offset++];
+        }
+
+        if (total < 56) {
+            throw std::runtime_error("RLP: Non-minimal length encoding");
+        }
+
+        return total;
+    }
+
+    inline RLPItem decode_internal(const std::vector<uint8_t>& bytes, size_t& offset) {
+        if (offset >= bytes.size()) {
+            throw std::runtime_error("RLP: Unexpected end of data");
+        }
+
+        RLPItem item;
+        uint8_t prefix = bytes[offset];
+
+        // 1. Single byte [0x00, 0x7f]
+        if (prefix < 0x80) {
+            item.is_list = false;
+            item.data.push_back(bytes[offset++]);
+            return item;
+        }
+
+        // 2. Short string (0 - 55 bytes long) [0x80, 0xb7]
+        if (prefix <= 0xB7) {
+            size_t length = prefix - 0x80;
             offset++;
-        } else {
-            throw std::runtime_error("RLP: Non match");
+            if (offset + length > bytes.size()) {
+                throw std::runtime_error("RLP: Short string out of bounds");
+            }
+            if (length == 1 && bytes[offset] < 0x80) {
+                throw std::runtime_error("RLP: Non-minimal single byte encoding");
+            }
+            item.is_list = false;
+            item.data.assign(bytes.begin() + offset, bytes.begin() + offset + length);
+            offset += length;
+            return item;
         }
-    }
 
-    if (prefix_offset == 0xF7){
-        if (bytes[offset] <= 0xFF && bytes[offset] > 0xF7){
-            lenght_of_length = bytes[offset] - prefix_offset;
+        // 3. Long string (> 55 bytes long) [0xb8, 0xbf]
+        if (prefix <= 0xBF) {
+            size_t length = decode_length(bytes, offset, 0xB7);
+            if (offset + length > bytes.size()) {
+                throw std::runtime_error("RLP: Long string data out of bounds");
+            }
+            item.is_list = false;
+            item.data.assign(bytes.begin() + offset, bytes.begin() + offset + length);
+            offset += length;
+            return item;
+        }
+
+        // 4. Short list (0 - 55 bytes payload) [0xc0, 0xf7]
+        if (prefix <= 0xF7) {
+            size_t list_bytes_len = prefix - 0xC0;
             offset++;
-        } else {
-            throw std::runtime_error("RLP: Non match");
+            size_t target_offset = offset + list_bytes_len;
+            if (target_offset > bytes.size()) {
+                throw std::runtime_error("RLP: Short list out of bounds");
+            }
+            item.is_list = true;
+            while (offset < target_offset) {
+                item.list.push_back(decode_internal(bytes, offset));
+            }
+            return item;
         }
-    }
 
-    for (size_t i = 0; i < lenght_of_length;++i){
-        total = total << 8;
-        total = total + bytes[offset++];
-    }
-
-    if (total <= 55){
-        throw std::runtime_error("RLP: Non-minimal length encoding");
-    }
-
-    return total;
-}
-
-// fungsi Pembungkus Wrapper
-RLPItem decode_internal(const std::vector<uint8_t>& bytes, size_t& offset){
-
-    uint8_t prefix;
-    size_t length;
-    size_t list_bytes_len;
-    size_t target_offset;
-
-
-    RLPItem Item;
-    // Seleksi dan offset harus lebih kecil dari ukuran bytes
-    if (offset >= bytes.size()){
-        throw std::runtime_error("THROW ERROR RLP: Unexpected end of data");
-    }
-
-    // Baca bita prefix
-    prefix = bytes[offset];
-
-    // Penentuan aturan RLP (berdasarkan spesifikasi RLP pada arsitektur etherum)
-    // data berbentuk single byte
-    if (prefix < 0x80){
-        Item.is_list = false;
-        Item.data.push_back(bytes[offset]);
-        offset++;
-        return Item;
-    }
-
-    // data berbentuk string pendek
-    if (prefix >= 0x80 && prefix <= 0xB7){
-        length = prefix - 0x80;
-        offset++;
-        if (offset + length > bytes.size()){
-            throw std::runtime_error("THROW ERROR: RLP: String lenght out of bounds");
+        // 5. Long list (> 55 bytes payload) [0xf8, 0xff]
+        size_t list_bytes_len = decode_length(bytes, offset, 0xF7);
+        size_t target_offset = offset + list_bytes_len;
+        if (target_offset > bytes.size()) {
+            throw std::runtime_error("RLP: Long list payload out of bounds");
         }
-        Item.is_list = false;
-
-        Item.data.assign(bytes.begin() + offset,bytes.begin() + offset + length);
-
-        offset += length;
-        return Item;
+        item.is_list = true;
+        while (offset < target_offset) {
+            item.list.push_back(decode_internal(bytes, offset));
+        }
+        return item;
     }
 
-    // data berbentuk string panjang
-    if (prefix > 0xB7 && prefix <= 0xBF){
-        length = decode_length(bytes, offset, 0xB7);
-        if (offset + length > bytes.size()){
-            throw std::runtime_error("THROW ERROR: RLP long string length out of bounds");
+    inline RLPItem rlp_decode(const std::vector<uint8_t>& bytes) {
+        size_t offset = 0;
+        RLPItem result = decode_internal(bytes, offset);
+        if (offset != bytes.size()) {
+            throw std::runtime_error("RLP: Trailing bytes detected");
         }
-        Item.is_list = false;
-
-        Item.data.assign(bytes.begin() + offset,bytes.begin() + offset + length);
-
-        offset += length;
-        return Item;
+        return result;
     }
 
-    // data berbentuk list pendek
-    if (prefix >= 0xC0 && prefix <= 0xF7) {
-        list_bytes_len = prefix - 0xC0;
-        offset++;
-        target_offset = offset + list_bytes_len;
+} // namespace common::rlp
 
-        if (target_offset > bytes.size()){
-            throw std::runtime_error("THROW ERROR: RLP long string length out of bounds");
-        }
-        Item.is_list = true;
-        while (offset < target_offset){
-            Item.list.push_back(decode_internal(bytes,offset));
-        }
-        return Item;
-    }
-
-    // data berbentuk list panjang
-    if (prefix > 0xF7 && prefix <= 0xFF){
-        list_bytes_len = decode_length(bytes, offset, 0xF7);
-        target_offset = offset + list_bytes_len;
-        if (target_offset > bytes.size()){
-            throw std::runtime_error("THROW ERROR: RLP long string length out of bounds");
-        }
-        Item.is_list = true;
-        while (offset < target_offset){
-            Item.list.push_back(decode_internal(bytes, offset));
-        }
-        return Item;
-    }
-    throw std::runtime_error("RLP: Invalid byte prefix");
-}
-
-
-// fungsi pembaca panjang data
-RLPItem rlp_decode(const std::vector<uint8_t>& bytes){
-    size_t offset = 0;
-    RLPItem result = decode_internal(bytes, offset);
-    if ( offset != bytes.size()){
-        throw std::runtime_error("RLP: Trailing bytes detected after decoding");
-    }
-    return result;
-}
-
-#endif
+#endif // COMMON_DECODE_RLP_H
